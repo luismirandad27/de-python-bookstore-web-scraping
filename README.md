@@ -1,1 +1,1 @@
-# de-python-yelp-restaurant-ratings-web-scraping
+# de-python-bookstore-web-scraping
