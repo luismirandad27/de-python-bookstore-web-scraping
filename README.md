@@ -1,1 +1,1 @@
-# de-python-yelp-restaurant-ranking-web-scraping
+# de-python-yelp-restaurant-ratings-web-scraping
