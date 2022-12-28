@@ -81,6 +81,8 @@ Avengers Endgame
 Midnight in Paris
 Akira
 ```
+#### References:
+[Scrapfly.io](https://scrapfly.io/blog/web-scraping-with-python/)
 ---
 
 ### Follow me on:
