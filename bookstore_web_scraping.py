@@ -1,67 +1,148 @@
 import requests
 import json
 from bs4 import BeautifulSoup
+import re
+import csv
+import pandas as pd
 
-url = "https://www.yelp.com/search?find_desc=Restaurants&find_loc=Vancouver%2C+British+Columbia"
-page = requests.get(url)
 
-soup = BeautifulSoup(page.content, "html.parser")
+def getting_list_of_books():
 
-results = soup.find(id='main-content')
+    book_type_list = []
 
-navigation = results.find('div',class_="pagination__09f24__VRjN4")
-total_pages_div = navigation.find_all('div',recursive=False)[1]
-total_pages_span = total_pages_div.find('span')
-total_pages = int(total_pages_span.text.split(' ')[2])
-
-for i in range(0,total_pages):
-    start = i * 10
-    url = f"https://www.yelp.com/search?find_desc=Restaurants&find_loc=Vancouver%2C+British+Columbia&start={start}"
+    url = "https://books.toscrape.com"
     page = requests.get(url)
     soup = BeautifulSoup(page.content, "html.parser")
-    results = soup.find(id='main-content')
+    results = soup.find('div',class_="container-fluid page")
+    div_sidebar = results.find('aside',class_="sidebar")
+    list_books_li = div_sidebar.find_all('li')
+    for li_element in list_books_li:
+        book_type_a = li_element.find('a')
+        book_type_list.append(book_type_a.text.strip().lower())
+    
+    return book_type_list
 
-    results = results.find_all('h3',class_='css-1agk4wl')
+def scraping_bookstore_webpage(book_type_list):
+    
+    with open('bookstore_scraping.csv', mode='w') as bookstore_file:
 
-    for element in results:
-        # Getting the Restaurant Name
-        restaurant_name = element.text
+        bookstore_writer = csv.writer(bookstore_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-        # Moving back to the div related to the restaurant
-        previous = element.find_previous('div')
-        previous = previous.find_previous('div')
-        previous = previous.find_previous('div')
-        previous = previous.find_previous('div')
+        book_header = ['Book Row','Book Name','Book URL','Book Type','Book Price','Book UPC','Book Availability','Books Available','Book Reviews','Book Rating']
 
-        # Getting the div element for rating and tags
-        div_rating = previous.find_all('div',recursive = False)[1]
-        div_tags = previous.find_all('div',recursive = False)[2]
+        bookstore_writer.writerow(book_header)
 
-        # Getting the total reviews
-        div_rating = div_rating.find('div')
-        div_rating = div_rating.find('div')
-        div_rating = div_rating.find('div')
-        div_rating = div_rating.find_all('div',recursive=False)
+        book_id = 1
 
-        # Getting the rating value for the restaurant
-        span_rating = div_rating[0].find('span')
-        div_rating_f = span_rating.find('div')
-        rating_value = div_rating_f['aria-label']
+        for idx in range(1,len(book_type_list)):
+            
+            book_type_for_url = str.replace(book_type_list[idx],' ','-')
+            
+            url = f"https://books.toscrape.com/catalogue/category/books/{book_type_for_url}_{idx+1}/index.html"
+            page = requests.get(url)
+            soup = BeautifulSoup(page.content, "html.parser")
 
-        span_reviews = div_rating[1].find('span',class_='css-chan6m')
-        rating_total_reviews = span_reviews.text
-        
-        # Getting the tags
-        p_element = div_tags.find('p')
-        tag_elements = p_element.find_all('span')[0]
-        tag_elements = tag_elements.find_all('a')
+            # Getting the number of pagess
+            results = soup.find('div',class_="container-fluid page")
+            page_inner = results.find('div',class_="page_inner")
+            row = page_inner.find('div',recursive=False)
+            books_div = row.find('div',recursive=False)
+            books_list_section = books_div.find('section',recursive=False)
+            
+            books_pager_ul = books_list_section.find('ul',class_="pager")
+            if (books_pager_ul is None):
+                books_total_pages = 1
+                #print('is Empty')
+            else:
+                books_pager_current = books_pager_ul.find('li',class_="current").text.strip()
+                books_total_pages = int(books_pager_current.split(' ')[3])
+                #print(books_total_pages)
 
-        print(f"{restaurant_name}: {rating_value} (Total reviews: {rating_total_reviews})")
-        print('TAGS:')
-        for tag_element in tag_elements:
-            span_element = tag_element.find('span',class_='css-11bijt4')
-            print(span_element.text)
+            for idx_page in range(0,books_total_pages):
+                
+                if (books_total_pages == 1):
+                    url = f"https://books.toscrape.com/catalogue/category/books/{book_type_for_url}_{idx+1}/index.html"
+                else:
+                    url = f"https://books.toscrape.com/catalogue/category/books/{book_type_for_url}_{idx+1}/page-{idx_page+1}.html"
 
+                page = requests.get(url)
+                soup = BeautifulSoup(page.content, "html.parser")
 
+                # Getting the number of pagess
+                results = soup.find('div',class_="container-fluid page")
+                page_inner = results.find('div',class_="page_inner")
+                row = page_inner.find('div',recursive=False)
+                books_div = row.find('div',recursive=False)
+                books_list_section = books_div.find('section',recursive=False)
 
+                books_list_li = books_list_section.find('ol',class_="row")
+                books_list_li = books_list_li.find_all('li')
 
+                for list_li_element in books_list_li:
+
+                    list_li_article = list_li_element.find('article',recursive=False)
+
+                    # Book's name
+                    name_h3 = list_li_article.find('h3',recursive=False)
+                    name_a = name_h3.find('a')
+                    book_link = str.replace(name_a['href'],'../../../','https://books.toscrape.com/catalogue/')
+                    book_name = name_a['title']
+
+                    page_book = requests.get(book_link)
+                    page_soup = BeautifulSoup(page_book.content,"html.parser")
+                    page_div = page_soup.find('div',class_="container-fluid page")
+                    page_inner = page_div.find('div',class_="page_inner")
+                    page_content_table = page_inner.find('table')
+                    page_content_rows = page_content_table.find_all('tr')
+                    book_upc = page_content_rows[0].find('td').text
+                    book_stock = page_content_rows[5].find('td').text
+
+                    book_stock_availability = re.findall('^[^\(]+',book_stock)[0].strip()
+                    book_stock_value = re.findall("\(.+?\)",book_stock)[0]
+                    book_stock_value = str.replace(book_stock_value,'(','')
+                    book_stock_value = str.replace(book_stock_value,')','').split(' ')[0]
+
+                    book_review = page_content_rows[6].find('td').text
+                    
+                    # Book's Rating
+                    rating_p = list_li_article.find('p',recursive=False)
+                    rating_value = rating_p['class'][1]
+                    
+                    match rating_value:
+                        case "One":
+                            rating_value = 1 
+                        case "Two":
+                            rating_value = 2
+                        case "Three":
+                            rating_value = 3
+                        case "Four":
+                            rating_value = 4
+                        case "Five":
+                            rating_value = 5
+                        case default:
+                            rating_value = 0
+                    
+                    # Book's Price
+                    price_div = list_li_article.find('div',class_="product_price")
+                    book_price = str.replace(price_div.find('p',class_="price_color").text,'£','')
+                    
+                    book_element = [book_id, book_name, book_link,book_type_list[idx],book_price,book_upc,book_stock_availability,book_stock_value,book_review,rating_value]
+                    
+                    book_id += 1
+
+                    bookstore_writer.writerow(book_element)
+
+        print('The Scraping Process on the Book Store website has been finished!')
+
+def getting_total_books_per_type():
+    df = pd.read_csv('bookstore_scraping.csv')
+    df_count = df[['Book Row','Book Type']].groupby(['Book Type']).count().sort_values(by=['Book Row'],ascending=False)
+    df_count = df_count.head(10)
+    print(df_count)
+
+def _init_():
+    book_type_list = getting_list_of_books()
+    scraping_bookstore_webpage(book_type_list)
+    getting_total_books_per_type()
+
+_init_()
