@@ -5,7 +5,7 @@
 
 Hey folks! This week I decided to learn a little bit about Web Scraping. You can check my article about a brief introduction of Web Scraping and how we can do this with Python on my Medium's Article here:
 
-Link: 
+Link: [Web Scraping: How to Use Python to Collect Data from the Web](https://medium.com/p/d66a0fb94176)
 &nbsp;
 ### **Project's Scenario:**
 This project is meant to create a web scraper with Python on fictional web site called "Book to Scrape". This website contains information about books per different categories and the idea of this project is to extract the information of each book available on the website.
